@@ -6,9 +6,7 @@ import codechicken.lib.vec.Rotation;
 import codechicken.lib.vec.Vector3;
 import codechicken.multipart.TMultiPart;
 import codechicken.multipart.TileMultipart;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.ObjectArrays;
+import com.google.common.collect.*;
 import gregtech.api.GTValues;
 import gregtech.api.block.machines.BlockMachine;
 import gregtech.api.metatileentity.MetaTileEntity;
@@ -18,6 +16,7 @@ import gregtech.api.unification.material.type.GemMaterial;
 import gregtech.api.unification.material.type.IngotMaterial;
 import gregtech.api.unification.material.type.Material;
 import gregtech.api.unification.ore.OrePrefix;
+import gregtech.api.util.GTLog;
 import gregtech.api.worldentries.pipenet.PipeNet;
 import gregtech.api.worldentries.pipenet.WorldPipeNet;
 import net.minecraft.block.Block;
@@ -34,10 +33,12 @@ import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.IBlockAccess;
 import net.minecraft.world.World;
+import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ICapabilityProvider;
 import net.minecraftforge.fml.common.Loader;
 import net.minecraftforge.fml.common.Optional.Method;
+import net.minecraftforge.fml.common.eventhandler.Event;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
@@ -78,6 +79,46 @@ public abstract class PipeFactory<Q extends Enum<Q> & IBaseProperty & IStringSer
             }
         });
     }
+
+    public static class PipeRegistryEvent<Q extends Enum<Q> & IBaseProperty & IStringSerializable, P extends IPipeLikeTileProperty> extends Event {
+        public final PipeFactory<Q, P, ?> factory;
+        final Multimap<OrePrefix, Material> ignoredMaterials = HashMultimap.create();
+        final Multimap<OrePrefix, Material> generatedMaterials = HashMultimap.create();
+
+        protected PipeRegistryEvent(PipeFactory<Q, P, ?> factory) {
+            this.factory = factory;
+        }
+
+        protected void registerPropertyForMaterial(Material material, P property) {
+            if (factory.isRegistered(material)){
+                GTLog.logger.warn(String.format("Ignoring registration of duplicated %s material %s", factory.name.replace("_", ""), material));
+            } else {
+                factory.registerPropertyForMaterial(material, property);
+            }
+        }
+
+        public void setIgnored(Q baseProperty, Material material) {
+            ignoredMaterials.put(baseProperty.getOrePrefix(), material);
+        }
+
+        /**
+         * Will cover the results of {@link #setIgnored(Q, Material)}.
+         */
+        public void setGenerated(Q baseProperty, Material material) {
+            generatedMaterials.put(baseProperty.getOrePrefix(), material);
+        }
+
+        public void specifyMaterialColor(Material material, int color) {
+            factory.specifyMaterialColor(material, color);
+        }
+
+        void setIgnoredMaterials() {
+            generatedMaterials.forEach(ignoredMaterials::remove);
+            ignoredMaterials.forEach(OrePrefix::setIgnored);
+        }
+    }
+
+    protected abstract PipeRegistryEvent<Q, P> getRegistryEvent();
 
     ////////////////////////////// BASIC FIELDS AND INITS //////////////////////////////////
 
@@ -139,7 +180,10 @@ public abstract class PipeFactory<Q extends Enum<Q> & IBaseProperty & IStringSer
     protected abstract P createActualProperty(Q baseProperty, P materialProperty);
 
     public Map<Material, BlockPipeLike<Q, P, C>> createBlockWithRegisteredProperties() {
+        PipeRegistryEvent<Q, P> event = getRegistryEvent();
+        MinecraftForge.EVENT_BUS.post(event);
         freezePropertyRegistry = true;
+        event.setIgnoredMaterials();
         REGISTERED_PROPERTIES.forEach(this::createBlock);
         return blockMap;
     }
