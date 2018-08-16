@@ -129,7 +129,7 @@ public class EnergyNet extends PipeNet<Insulation, WireProperties, IEnergyContai
         return stat;
     }
 
-    // amperage, energy
+    // amperage, voltage
     public double[] getStatisticData(BlockPos pos) {
         long timer = getTickTimer();
         return statistics.computeIfAbsent(pos, p -> new Statistics(timer)).getData(timer);
