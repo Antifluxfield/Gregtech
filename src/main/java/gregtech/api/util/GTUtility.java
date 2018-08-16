@@ -51,7 +51,6 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.IItemHandlerModifiable;
-import org.apache.commons.lang3.ArrayUtils;
 
 import javax.annotation.Nullable;
 import java.awt.*;
@@ -69,17 +68,17 @@ import static gregtech.api.GTValues.V;
 
 public class GTUtility {
 
-    public static int gcd(int a, int b) {
-        if (a == 0 || b == 0) throw new ArithmeticException("div by 0");
-        if (a < 0) a = -a;
-        if (b < 0) b = -b;
+    public static long gcd(long a, long b) {
+        if (a == 0L || b == 0L) throw new ArithmeticException("div by 0");
+        if (a < 0L) a = -a;
+        if (b < 0L) b = -b;
         while (true) {
-            if (0 == (a %= b)) return b;
-            if (0 == (b %= a)) return a;
+            if (0L == (a %= b)) return b;
+            if (0L == (b %= a)) return a;
         }
     }
 
-    public static int lcm(int a, int b) {
+    public static long lcm(long a, long b) {
         return a / gcd(a, b) * b;
     }
 

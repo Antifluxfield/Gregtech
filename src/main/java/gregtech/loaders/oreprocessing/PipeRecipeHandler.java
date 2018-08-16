@@ -11,6 +11,7 @@ import gregtech.api.unification.material.type.Material;
 import gregtech.api.unification.ore.OrePrefix;
 import gregtech.api.unification.stack.MaterialStack;
 import gregtech.api.unification.stack.UnificationEntry;
+import gregtech.api.util.GTUtility;
 import gregtech.common.items.MetaItems;
 
 import static gregtech.api.unification.material.type.DustMaterial.MatFlags.*;
@@ -29,9 +30,6 @@ public class PipeRecipeHandler {
         pipeRestrictiveMedium.addProcessingHandler(DustMaterial.class, PipeRecipeHandler::processRestrictivePipe);
         pipeRestrictiveLarge.addProcessingHandler(DustMaterial.class, PipeRecipeHandler::processRestrictivePipe);
         pipeRestrictiveHuge.addProcessingHandler(DustMaterial.class, PipeRecipeHandler::processRestrictivePipe);
-        //pipeQuadruple.addProcessingHandler(DustMaterial.class, PipeRecipeHandler::processMultiPipe);
-        //pipeNonuple.addProcessingHandler(DustMaterial.class, PipeRecipeHandler::processMultiPipe);
-        //pipeSexdecuple.addProcessingHandler(DustMaterial.class, PipeRecipeHandler::processMultiPipe);
     }
 
     public static void processNormalPipe(OrePrefix pipePrefix, DustMaterial material) {
@@ -74,33 +72,18 @@ public class PipeRecipeHandler {
         }
 
         if (material instanceof IngotMaterial) {
-            int input = 0;
-            int output = 1;
+            long d = GTUtility.gcd(ingot.materialAmount, pipePrefix.materialAmount);
+            int input = (int) (pipePrefix.materialAmount / d);
+            int output = (int) (ingot.materialAmount / d);
             MetaItem.MetaValueItem extruderShape = null;
             switch (pipePrefix) {
-                case pipeTiny:
-                    input = 1;
-                    output = 2;
-                    extruderShape = MetaItems.SHAPE_EXTRUDER_PIPE_TINY;
-                    break;
-                case pipeSmall:
-                    input = 1;
-                    extruderShape = MetaItems.SHAPE_EXTRUDER_PIPE_SMALL;
-                    break;
-                case pipeMedium:
-                    input = 3;
-                    extruderShape = MetaItems.SHAPE_EXTRUDER_PIPE_MEDIUM;
-                    break;
-                case pipeLarge:
-                    input = 6;
-                    extruderShape = MetaItems.SHAPE_EXTRUDER_PIPE_LARGE;
-                    break;
-                case pipeHuge:
-                    input = 12;
-                    extruderShape = MetaItems.SHAPE_EXTRUDER_PIPE_HUGE;
-                    break;
+                case pipeTiny: extruderShape = MetaItems.SHAPE_EXTRUDER_PIPE_TINY; break;
+                case pipeSmall: extruderShape = MetaItems.SHAPE_EXTRUDER_PIPE_SMALL; break;
+                case pipeMedium: extruderShape = MetaItems.SHAPE_EXTRUDER_PIPE_MEDIUM; break;
+                case pipeLarge: extruderShape = MetaItems.SHAPE_EXTRUDER_PIPE_LARGE; break;
+                case pipeHuge: extruderShape = MetaItems.SHAPE_EXTRUDER_PIPE_HUGE; break;
             }
-            if (input > 0 && extruderShape != null) {
+            if (extruderShape != null) {
                 RecipeMaps.EXTRUDER_RECIPES.recipeBuilder()
                     .input(ingot, material, input)
                     .notConsumable(extruderShape)
@@ -124,47 +107,6 @@ public class PipeRecipeHandler {
                 .outputs(OreDictUnifier.get(pipePrefix, material))
                 .duration(400 * amount)
                 .EUt(4)
-                .buildAndRegister();
-        }
-    }
-
-    public static void processMultiPipe(OrePrefix pipePrefix, Material material) {
-        int amount = 0;
-        int duration = 0;
-        OrePrefix prefix = null;
-        switch (pipePrefix) {
-            case pipeQuadruple:
-                amount = 4;
-                duration = 40;
-                prefix = pipeMedium;
-                if (OreDictUnifier.get(prefix, material).isEmpty()) return;
-                ModHandler.addShapedRecipe(getRecipeName(pipePrefix, material),
-                    OreDictUnifier.get(pipePrefix, material),
-                    "XX", "XX", 'X', new UnificationEntry(prefix, material));
-                break;
-            case pipeNonuple:
-                amount = 9;
-                duration = 60;
-                prefix = pipeSmall;
-                if (OreDictUnifier.get(prefix, material).isEmpty()) return;
-                ModHandler.addShapedRecipe(getRecipeName(pipePrefix, material),
-                    OreDictUnifier.get(pipePrefix, material),
-                    "XXX", "XXX", "XXX", 'X', new UnificationEntry(prefix, material));
-                break;
-            case pipeSexdecuple:
-                amount = 16;
-                duration = 80;
-                prefix = pipeTiny;
-                if (OreDictUnifier.get(prefix, material).isEmpty()) return;
-                break;
-        }
-        if (prefix != null) {
-            RecipeMaps.ASSEMBLER_RECIPES.recipeBuilder()
-                .input(prefix, material, amount)
-                .circuitMeta(amount)
-                .outputs(OreDictUnifier.get(pipePrefix, material))
-                .duration(duration)
-                .EUt(8)
                 .buildAndRegister();
         }
     }
