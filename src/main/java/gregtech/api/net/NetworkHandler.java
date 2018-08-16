@@ -119,21 +119,6 @@ public class NetworkHandler {
             )
         ));
 
-        registerPacket(4, PacketPipeNetUpdate.class, new PacketCodec<>(
-            (packet, buf) -> {
-                buf.writeInt(packet.pipeNetName.length());
-                buf.writeString(packet.pipeNetName);
-                buf.writeLong(packet.uid);
-                buf.writeInt(packet.updateData.readableBytes());
-                buf.writeBytes(packet.updateData);
-            },
-            buf -> new PacketPipeNetUpdate(
-                buf.readString(buf.readInt()),
-                buf.readLong(),
-                new PacketBuffer(buf.readBytes(buf.readInt()))
-            )
-        ));
-
         registerServerExecutor(PacketUIClientAction.class, (packet, handler) -> {
             Container openContainer = handler.player.openContainer;
             if(openContainer instanceof ModularUIContainer &&
@@ -157,7 +142,6 @@ public class NetworkHandler {
             uiFactory.initClientUI(packet.serializedHolder, packet.windowId);
         });
         registerClientExecutor(PacketUIWidgetUpdate.class, (packet, handler) -> ModularUIGui.queuingWidgetUpdates.add(packet));
-        registerClientExecutor(PacketPipeNetUpdate.class, ((packet, handler) -> WorldPipeNet.onServerPacket(packet)));
     }
 
     public static <T extends Packet> void registerPacket(int packetId, Class<T> packetClass, PacketCodec<T> codec) {

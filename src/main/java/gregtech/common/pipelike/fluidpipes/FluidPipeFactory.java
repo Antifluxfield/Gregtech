@@ -68,9 +68,6 @@ public class FluidPipeFactory extends PipeFactory<TypeFluidPipe, FluidPipeProper
     public void setOnlyMediumSized(Material material) {
         OrePrefix.pipeTiny.setIgnored(material);
         OrePrefix.pipeHuge.setIgnored(material);
-        OrePrefix.pipeQuadruple.setIgnored(material);
-        OrePrefix.pipeNonuple.setIgnored(material);
-        OrePrefix.pipeSexdecuple.setIgnored(material);
     }
 
     public void registerFluidPipe(Material material, int fluidCapacity, int heatLimit) {

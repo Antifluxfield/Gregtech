@@ -112,7 +112,7 @@ public class ItemPipeNet extends PipeNet<TypeItemPipe, ItemPipeProperties, IItem
     private Multimap<BlockPos, BufferedItem> toMove = HashMultimap.create();
 
     @Override
-    protected void onPreTick(long tickTimer) {
+    protected void onPreTick() {
         if (!pipes.isEmpty()) {
             BlockPos.PooledMutableBlockPos pos = BlockPos.PooledMutableBlockPos.retain();
             Multimap<BufferedItem, Pair<BlockPos, EnumFacing>> moving = HashMultimap.create();
@@ -162,7 +162,7 @@ public class ItemPipeNet extends PipeNet<TypeItemPipe, ItemPipeProperties, IItem
     }
 
     @Override
-    protected void update(long tickTimer) {
+    protected void update() {
         World world = worldNets.getWorld();
         if (!world.isRemote) {
             if (!toMove.isEmpty()) {
@@ -182,7 +182,7 @@ public class ItemPipeNet extends PipeNet<TypeItemPipe, ItemPipeProperties, IItem
                     if (!moved) {
                         int[] indices = {0, 1, 2, 3, 4, 5};
                         for (int i = 6, r; i > 0 && !bufferedItem.isEmpty(); indices[r] = indices[--i]) {
-                            r = WorldPipeNet.rnd.nextInt(i);
+                            r = worldNets.getWorld().rand.nextInt(i);
                             EnumFacing dir = EnumFacing.VALUES[indices[r]];
                             if (allNodes.containsKey(mutablePos.setPos(pos).move(dir))) {
                                 if (getOrCreatePipe(mutablePos).addItem(bufferedItem.bufferedStack, dir) >= 0) {
@@ -200,7 +200,7 @@ public class ItemPipeNet extends PipeNet<TypeItemPipe, ItemPipeProperties, IItem
     }
 
     @Override
-    protected void onPostTick(long tickTimer) {
+    protected void onPostTick() {
         if (!pipes.isEmpty()) {
             for (Iterator<Pipe> itr = pipes.values().iterator(); itr.hasNext();) {
                 Pipe pipe = itr.next();
@@ -245,14 +245,14 @@ public class ItemPipeNet extends PipeNet<TypeItemPipe, ItemPipeProperties, IItem
 
         if (!handlers.isEmpty()) {
             @SuppressWarnings("unchecked")
-            RoutePath<ItemPipeProperties, ?, Long> path = ((Map.Entry<RoutePath<ItemPipeProperties, ?, Long>, IItemHandler>) handlers.entries().toArray()[WorldPipeNet.rnd.nextInt(handlers.size())]).getKey();
+            RoutePath<ItemPipeProperties, ?, Long> path = ((Map.Entry<RoutePath<ItemPipeProperties, ?, Long>, IItemHandler>) handlers.entries().toArray()[worldNets.getWorld().rand.nextInt(handlers.size())]).getKey();
             LinkedNode<ItemPipeProperties> startNode = path.getStartNode();
             if (startNode.getTarget() == null) {
                 IItemHandler[] selectedHandlers = handlers.get(path).toArray(new IItemHandler[0]);
                 int[] indices = new int[selectedHandlers.length];
                 for (int i = 0; i < indices.length; i++) indices[i] = i;
                 for (int i = indices.length, r; i > 0 && !stack.isEmpty(); indices[r] = indices[--i]) {
-                    r = WorldPipeNet.rnd.nextInt(i);
+                    r = worldNets.getWorld().rand.nextInt(i);
                     stack = insertItem(stack, selectedHandlers[indices[r]]);
                 }
             } else {

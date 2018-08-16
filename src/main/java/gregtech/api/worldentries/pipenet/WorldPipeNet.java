@@ -3,33 +3,24 @@ package gregtech.api.worldentries.pipenet;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
-import gregtech.api.net.NetworkHandler;
-import gregtech.api.net.PacketPipeNetUpdate;
 import gregtech.api.pipelike.IBaseProperty;
 import gregtech.api.pipelike.IPipeLikeTileProperty;
 import gregtech.api.pipelike.ITilePipeLike;
 import gregtech.api.pipelike.PipeFactory;
-import gregtech.api.util.XSTR;
-import io.netty.buffer.Unpooled;
-import net.minecraft.client.Minecraft;
-import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
-import net.minecraft.network.PacketBuffer;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.IStringSerializable;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
-import net.minecraft.world.WorldServer;
 import net.minecraft.world.storage.WorldSavedData;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
 
 import javax.annotation.Nullable;
-import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
 import static net.minecraftforge.common.util.Constants.NBT.TAG_COMPOUND;
 
@@ -187,61 +178,5 @@ public class WorldPipeNet extends WorldSavedData {
         nets.forEach(net -> {
             if (net.isAnyAreaLoaded()) net.onPostTick();
         });
-
-        if (world instanceof WorldServer) {
-            nets.forEach(net -> {
-                if (net.needsClientSync()) {
-                    NBTTagCompound updateTag = net.getTagForPacket();
-                    if (updateTag != null) {
-                        world.playerEntities.stream()
-                            .map(EntityPlayerMP.class::cast)
-                            .filter(net::isPlayerWatching)
-                            .forEach(player -> NetworkHandler.channel
-                                .sendTo(NetworkHandler.packet2proxy(new PacketPipeNetUpdate(net.factory.name, net.uid,
-                                    new PacketBuffer(Unpooled.buffer()).writeCompoundTag(updateTag))), player));
-                    }
-                    net.clientSync = false;
-                }
-            });
-        }
     }
-
-    final WeakHashMap<PipeNet, Long> uids = new WeakHashMap<>();
-    public static Random rnd = new XSTR();
-
-    private Long tempUID = null;
-    long getUID() {
-        long uid;
-        if (tempUID != null) {
-            uid = tempUID;
-            tempUID = null;
-        } else {
-            do {
-                uid = rnd.nextLong();
-            } while (uids.containsValue(uid));
-        }
-        return uid;
-    }
-
-    private WorldPipeNet withTempUID(long uid) {
-        tempUID = uid;
-        return this;
-    }
-
-    @SideOnly(Side.CLIENT)
-    public static void onServerPacket(PacketPipeNetUpdate packet) {
-        WorldPipeNet pipeNets = getWorldPipeNet(Minecraft.getMinecraft().world);
-        PipeNet net = pipeNets.pipeNets.values().stream().filter(n -> n.uid == packet.uid).findAny()
-            .orElseGet(() -> Optional.ofNullable(PipeFactory.allFactories.get(packet.pipeNetName))
-                .map(factory -> pipeNets.addPipeNet(factory.createPipeNet(pipeNets.withTempUID(packet.uid))))
-                .orElse(null));
-        if (net != null) {
-            try {
-                net.onPacketTag(packet.updateData.readCompoundTag());
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
 }

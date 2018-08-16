@@ -30,7 +30,6 @@ import static net.minecraftforge.common.util.Constants.NBT.TAG_COMPOUND;
 //TODO Covers
 public abstract class PipeNet<Q extends Enum<Q> & IBaseProperty & IStringSerializable, P extends IPipeLikeTileProperty, C> implements INBTSerializable<NBTTagCompound> {
 
-    final long uid;
     protected PipeFactory<Q, P, C> factory;
     protected WorldPipeNet worldNets;
     private ListMultimap<ChunkPos, BlockPos> area = ArrayListMultimap.create();
@@ -41,8 +40,6 @@ public abstract class PipeNet<Q extends Enum<Q> & IBaseProperty & IStringSeriali
     protected PipeNet(PipeFactory<Q, P, C> factory, WorldPipeNet worldNets) {
         this.factory = factory;
         this.worldNets = worldNets;
-        uid = worldNets.getUID();
-        worldNets.uids.put(this, uid);
     }
 
     public PipeFactory<Q, P, C> getFactory() {
@@ -82,25 +79,16 @@ public abstract class PipeNet<Q extends Enum<Q> & IBaseProperty & IStringSeriali
         if (area.get(chunkPos).isEmpty()) area.removeAll(chunkPos);
     }
 
-    protected void onPreTick(long tickTimer) {}//pre calculations here
-    protected void update(long tickTimer) {}// world interactions here
-    protected void onPostTick(long tickTimer) {}//post calculations here
+    protected long getTickTimer() {
+        return worldNets.getWorld().getTotalWorldTime();
+    }
 
-    private long tickTimer = 0;
+    protected void onPreTick() {}//pre calculations here
+    protected void update() {}// world interactions here
+    protected void onPostTick() {}//post calculations here
+
     protected long lastUpdate = 1;
     protected long lastWeakUpdate = 1;
-
-    public final void onPreTick() {
-        onPreTick(tickTimer);
-    }
-
-    public final void update() {
-        update(tickTimer);
-    }
-
-    public final void onPostTick() {
-        onPostTick(tickTimer++);
-    }
 
     public long getLastUpdate() {
         return lastUpdate;
@@ -362,23 +350,6 @@ public abstract class PipeNet<Q extends Enum<Q> & IBaseProperty & IStringSeriali
         }
         return result;
     }
-
-    boolean clientSync = false;
-
-    public void issueClientSync() {
-        clientSync = true;
-    }
-
-    boolean needsClientSync() {
-        return clientSync;
-    }
-
-    @Nullable
-    protected NBTTagCompound getTagForPacket() {
-        return null;
-    }
-
-    protected void onPacketTag(NBTTagCompound tag) {}
 
 
 

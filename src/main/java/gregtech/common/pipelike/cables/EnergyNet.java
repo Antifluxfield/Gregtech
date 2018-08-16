@@ -1,7 +1,7 @@
 package gregtech.common.pipelike.cables;
 
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import gregtech.api.capability.IEnergyContainer;
 import gregtech.api.worldentries.pipenet.PipeNet;
 import gregtech.api.worldentries.pipenet.RoutePath;
@@ -15,64 +15,31 @@ import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 
 import java.util.Collection;
-import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 public class EnergyNet extends PipeNet<Insulation, WireProperties, IEnergyContainer> {
 
-    private Map<BlockPos, EnergyPacket> tickCount = Maps.newHashMap();
+    private Map<BlockPos, EnergyPacket> passingPackets = Maps.newHashMap();
     private Map<BlockPos, Statistics> statistics = Maps.newHashMap();
-    private Collection<BlockPos> burntBlock = Sets.newHashSet();
 
-    public EnergyNet(WorldPipeNet worldNet) {
+    EnergyNet(WorldPipeNet worldNet) {
         super(CableFactory.INSTANCE, worldNet);
-    }
-
-    @Override
-    protected void onPreTick(long tickTimer) {
-        if (!worldNets.getWorld().isRemote) {
-            if (!statistics.isEmpty()) {
-                for (Iterator<Map.Entry<BlockPos, Statistics>> itr = statistics.entrySet().iterator(); itr.hasNext();) {
-                    Map.Entry<BlockPos, Statistics> e = itr.next();
-                    Statistics stat = e.getValue();
-                    stat.addData(tickCount.get(e.getKey()));
-                    if (stat.isRemovable()) itr.remove();
-                }
-            }
-        }
-        tickCount.clear();
-    }
-
-    @Override
-    protected void update(long tickTimer) {
-        World world = worldNets.getWorld();
-        if (!world.isRemote) {
-            burntBlock.forEach(pos -> {
-                world.setBlockToAir(pos);
-                world.setBlockState(pos, Blocks.FIRE.getDefaultState());
-                ((WorldServer) world).spawnParticle(EnumParticleTypes.SMOKE_LARGE,
-                    pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5,
-                    5 + world.rand.nextInt(3), 0.0, 0.0, 0.0, 0.1);
-            });
-            burntBlock.clear();
-        }
     }
 
     @Override
     protected void transferNodeDataTo(Collection<? extends BlockPos> nodeToTransfer, PipeNet<Insulation, WireProperties, IEnergyContainer> toNet) {
         EnergyNet net = (EnergyNet) toNet;
         for (BlockPos pos : nodeToTransfer) {
-            if (tickCount.containsKey(pos)) net.tickCount.put(pos, tickCount.get(pos));
-            if (burntBlock.contains(pos)) net.burntBlock.add(pos);
+            if (passingPackets.containsKey(pos)) net.passingPackets.put(pos, passingPackets.get(pos));
             if (statistics.containsKey(pos)) net.statistics.put(pos, statistics.get(pos));
         }
     }
 
     @Override
     protected void removeData(BlockPos pos) {
-        tickCount.remove(pos);
-        //burntBlock.remove(pos);
+        passingPackets.remove(pos);
         statistics.remove(pos);
     }
 
@@ -104,7 +71,7 @@ public class EnergyNet extends PipeNet<Insulation, WireProperties, IEnergyContai
         World world = worldNets.getWorld();
         int[] indices = {0, 1, 2, 3, 4, 5};
         for (int i = 6, r; i > 0 && amperesUsed < amperage; indices[r] = indices[--i]) { // shuffle & traverse
-            r = WorldPipeNet.rnd.nextInt(i);
+            r = worldNets.getWorld().rand.nextInt(i);
             EnumFacing facing = EnumFacing.VALUES[indices[r]];
             if (0 != (tileMask & 1 << facing.getIndex())) {
                 pos.setPos(destination).move(facing);
@@ -131,13 +98,41 @@ public class EnergyNet extends PipeNet<Insulation, WireProperties, IEnergyContai
 
     private void onEnergyPacket(Node<WireProperties> node, long voltage, long amperage) {
         WireProperties prop = node.property;
-        long amp = tickCount.compute(node, (pos, ePacket) -> ePacket == null ? EnergyPacket.create(amperage, voltage) : ePacket.accumulate(amperage, voltage)).amperage;
-        if (voltage > prop.getVoltage() || amp > prop.getAmperage()) burntBlock.add(node);
+        long timer = getTickTimer();
+        long amp = passingPackets.compute(node, (pos, ePacket) -> {
+            if (ePacket == null || ePacket.lastTickTime < timer) {
+                EnergyPacket packet = EnergyPacket.create(amperage, voltage, timer);
+                Statistics stat = getStatistic(node);
+                if (stat != null) stat.addData(packet, timer);
+                return packet;
+            }
+            return ePacket.accumulate(amperage, voltage);
+        }).amperage;
+        if (voltage > prop.getVoltage() || amp > prop.getAmperage()) burnCable(node);
+    }
+
+    private void burnCable(BlockPos pos) {
+        World world = worldNets.getWorld();
+        world.setBlockToAir(pos);
+        world.setBlockState(pos, Blocks.FIRE.getDefaultState());
+        ((WorldServer) world).spawnParticle(EnumParticleTypes.SMOKE_LARGE,
+            pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5,
+            5 + world.rand.nextInt(3), 0.0, 0.0, 0.0, 0.1);
+    }
+
+    private Statistics getStatistic(BlockPos pos) {
+        Statistics stat = statistics.get(pos);
+        if (stat != null && getTickTimer() - stat.lastTickTime > STATISTIC_COUNT * 5) {
+            statistics.remove(pos);
+            stat = null;
+        }
+        return stat;
     }
 
     // amperage, energy
     public double[] getStatisticData(BlockPos pos) {
-        return statistics.computeIfAbsent(pos, p -> new Statistics()).getData();
+        long timer = getTickTimer();
+        return statistics.computeIfAbsent(pos, p -> new Statistics(timer)).getData(timer);
     }
 
     public static final int STATISTIC_COUNT = 20;
@@ -145,14 +140,16 @@ public class EnergyNet extends PipeNet<Insulation, WireProperties, IEnergyContai
     public static class EnergyPacket {
         public long amperage;
         public double energy;
+        public long lastTickTime;
 
-        EnergyPacket(long amperage, double energy) {
+        EnergyPacket(long amperage, double energy, long timer) {
             this.amperage = amperage;
             this.energy = energy;
+            this.lastTickTime = timer;
         }
 
-        static EnergyPacket create(long amperage, long voltage) {
-            return new EnergyPacket(amperage, (double) amperage * (double) voltage);
+        static EnergyPacket create(long amperage, long voltage, long timer) {
+            return new EnergyPacket(amperage, (double) amperage * (double) voltage, timer);
         }
 
         EnergyPacket accumulate(long amperage, long voltage) {
@@ -165,40 +162,31 @@ public class EnergyNet extends PipeNet<Insulation, WireProperties, IEnergyContai
     public static final double[] NO_DATA = {0.0, 0.0};
 
     static class Statistics {
-        long[] amperes = new long[STATISTIC_COUNT];
-        double[] energies = new double[STATISTIC_COUNT];
-        int pointer = 0;
-        int dataCount = 0;
-        int countDown = STATISTIC_COUNT * 5;
+        List<EnergyPacket> bufferedPackets = Lists.newArrayListWithCapacity(STATISTIC_COUNT);
+        long lastTickTime;
 
-        Statistics addData(EnergyPacket data) {
-            if (data != null) {
-                amperes[pointer] = data.amperage;
-                energies[pointer] = data.energy;
-            } else {
-                amperes[pointer] = 0;
-                energies[pointer] = 0;
-            }
-            pointer++;
-            if (pointer >= STATISTIC_COUNT) pointer -= STATISTIC_COUNT;
-            if (dataCount < STATISTIC_COUNT) dataCount++;
-            if (countDown > 0) --countDown;
-            return this;
+        Statistics(long tickCounter) {
+            this.lastTickTime = tickCounter;
         }
 
-        boolean isRemovable() {
-            return countDown == 0;
+        EnergyPacket addData(EnergyPacket ePacket, long timer) {
+            bufferedPackets.removeIf(packet -> timer - packet.lastTickTime > STATISTIC_COUNT);
+            bufferedPackets.add(ePacket);
+            lastTickTime = timer;
+            return ePacket;
         }
 
-        double[] getData() {
-            if (dataCount == 0) return NO_DATA;
+        double[] getData(long timer) {
+            bufferedPackets.removeIf(packet -> timer - packet.lastTickTime > STATISTIC_COUNT);
+            lastTickTime = timer;
+            int size = bufferedPackets.size();
+            if (size == 0) return NO_DATA;
             double amperage = 0.0, energy = 0.0;
-            for (int i = 0; i < STATISTIC_COUNT; i++) {
-                amperage += amperes[i];
-                energy += energies[i];
+            for (EnergyPacket ePacket : bufferedPackets) {
+                amperage += ePacket.amperage;
+                energy += ePacket.energy;
             }
-            countDown = STATISTIC_COUNT * 5;
-            return new double[]{amperage / dataCount, energy / amperage};
+            return amperage > 0.0 ? new double[]{amperage / size, energy / amperage} : NO_DATA;
         }
     }
 }

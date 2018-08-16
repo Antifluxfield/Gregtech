@@ -132,7 +132,7 @@ public class FluidPipeNet extends PipeNet<TypeFluidPipe, FluidPipeProperties, IF
     private Map<Triple<BlockPos, BufferTank, FluidStack>, EnumMap<EnumFacing, BufferTank>> snapshots = Maps.newHashMap();
 
     @Override
-    protected void onPreTick(long tickTimer) {
+    protected void onPreTick() {
         if (!pipes.isEmpty()) {
             BlockPos.PooledMutableBlockPos pos = BlockPos.PooledMutableBlockPos.retain();
             Map<Pair<BufferTank, FluidStack>, EnumMap<EnumFacing, BufferTank>> toMove = Maps.newHashMap();
@@ -231,7 +231,7 @@ public class FluidPipeNet extends PipeNet<TypeFluidPipe, FluidPipeProperties, IF
                     int[] indices = new int[sideContainers.length];
                     for (int i = 0; i < sideContainers.length; i++) indices[i] = i;
                     for (int i = sideContainers.length, r; i > 0; indices[r] = indices[--i]) {
-                        r = WorldPipeNet.rnd.nextInt(i);
+                        r = worldNets.getWorld().rand.nextInt(i);
                         Map.Entry<EnumFacing, BufferTank> p = sideContainers[indices[r]];
                         filled += p.getValue().fill(new FluidStack(stack, quotient + (remainder-- > 0 ? 1 : 0)), p.getKey(), true);
                     }
@@ -243,7 +243,7 @@ public class FluidPipeNet extends PipeNet<TypeFluidPipe, FluidPipeProperties, IF
     }
 
     @Override
-    protected void update(long tickTimer) {
+    protected void update() {
         World world = worldNets.getWorld();
         if (!world.isRemote) {
             BlockPos.PooledMutableBlockPos pos = BlockPos.PooledMutableBlockPos.retain();
@@ -277,7 +277,7 @@ public class FluidPipeNet extends PipeNet<TypeFluidPipe, FluidPipeProperties, IF
                         int[] indices = new int[sideContainers.length];
                         for (int i = 0; i < sideContainers.length; i++) indices[i] = i;
                         for (int i = sideContainers.length, r; i > 0; indices[r] = indices[--i]) {
-                            r = WorldPipeNet.rnd.nextInt(i);
+                            r = worldNets.getWorld().rand.nextInt(i);
                             Map.Entry<EnumFacing, Object> sideContainer = sideContainers[indices[r]];
                             FluidStack toFill = new FluidStack(stack, quotient + (remainder-- > 0 ? 1 : 0));
                             if (sideContainer.getValue() instanceof BufferTank) {
@@ -341,14 +341,14 @@ public class FluidPipeNet extends PipeNet<TypeFluidPipe, FluidPipeProperties, IF
                 });
                 burnt.forEach((p, tempDiff) -> {
                     int chance = Math.max(1, 100 * 50 / tempDiff);
-                    for (EnumFacing facing : EnumFacing.VALUES) if (WorldPipeNet.rnd.nextInt(chance) < 15) {
+                    for (EnumFacing facing : EnumFacing.VALUES) if (worldNets.getWorld().rand.nextInt(chance) < 15) {
                         pos.setPos(p).move(facing);
                         if (world.getBlockState(pos).getBlock().isReplaceable(world, pos)) {
                             world.setBlockToAir(pos);
                             world.setBlockState(pos, Blocks.FIRE.getDefaultState());
                         }
                     }
-                    if (WorldPipeNet.rnd.nextInt(chance) == 0) {
+                    if (worldNets.getWorld().rand.nextInt(chance) == 0) {
                         world.setBlockToAir(p);
                         world.setBlockState(p, Blocks.FIRE.getDefaultState());
                     }
@@ -359,7 +359,7 @@ public class FluidPipeNet extends PipeNet<TypeFluidPipe, FluidPipeProperties, IF
     }
 
     @Override
-    protected void onPostTick(long tickTimer) {
+    protected void onPostTick() {
         for (Iterator<Pipe> itr = pipes.values().iterator(); itr.hasNext();) {
             Pipe pipe = itr.next();
             pipe.tick();

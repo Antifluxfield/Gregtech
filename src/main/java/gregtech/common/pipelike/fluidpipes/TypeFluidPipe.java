@@ -11,11 +11,7 @@ public enum TypeFluidPipe implements IBaseProperty, IStringSerializable {
     PIPE_SMALL("fluid_pipe_small", 2, 1, pipeSmall, 0.375F, 1),
     PIPE_MEDIUM("fluid_pipe_medium", 6, 1, pipeMedium, 0.5F, 2),
     PIPE_LARGE("fluid_pipe_large", 12, 1, pipeLarge, 0.75F, 3),
-    PIPE_HUGE("fluid_pipe_huge", 24, 1, pipeHuge, 0.875F, 4),
-
-    PIPE_QUADRUPLE("fluid_pipe_quadruple", 6, 4, pipeQuadruple, 0.9375F, 5),
-    PIPE_NONUPLE("fluid_pipe_nonuple", 2, 9, pipeNonuple, 0.9375F, 6),
-    PIPE_SEXDECUPLE("fluid_pipe_sexdecuple", 1, 16, pipeSexdecuple, 0.875F, 7);
+    PIPE_HUGE("fluid_pipe_huge", 24, 1, pipeHuge, 0.875F, 4);
 
     public final String name;
     public final OrePrefix orePrefix;
