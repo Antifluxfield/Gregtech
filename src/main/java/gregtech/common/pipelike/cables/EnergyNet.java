@@ -3,11 +3,11 @@ package gregtech.common.pipelike.cables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import gregtech.api.capability.IEnergyContainer;
+import gregtech.api.pipelike.ITilePipeLike;
 import gregtech.api.worldentries.pipenet.PipeNet;
 import gregtech.api.worldentries.pipenet.RoutePath;
 import gregtech.api.worldentries.pipenet.WorldPipeNet;
 import net.minecraft.init.Blocks;
-import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumParticleTypes;
 import net.minecraft.util.math.BlockPos;
@@ -67,24 +67,19 @@ public class EnergyNet extends PipeNet<Insulation, WireProperties, IEnergyContai
         Node<WireProperties> destination = path.getEndNode();
         int tileMask = destination.getActiveMask();
         if (ignoredFacing != null && destination.equals(path.getStartNode())) tileMask &= ~(1 << ignoredFacing.getIndex());
-        BlockPos.PooledMutableBlockPos pos = BlockPos.PooledMutableBlockPos.retain();
         World world = worldNets.getWorld();
         int[] indices = {0, 1, 2, 3, 4, 5};
         for (int i = 6, r; i > 0 && amperesUsed < amperage; indices[r] = indices[--i]) { // shuffle & traverse
-            r = worldNets.getWorld().rand.nextInt(i);
+            r = getRandom().nextInt(i);
             EnumFacing facing = EnumFacing.VALUES[indices[r]];
+            ITilePipeLike<Insulation, WireProperties> cable = factory.getTile(world, destination);
             if (0 != (tileMask & 1 << facing.getIndex())) {
-                pos.setPos(destination).move(facing);
-                if (!world.isBlockLoaded(pos)) continue; //do not allow cables to load chunks
-                TileEntity tile = world.getTileEntity(pos);
-                if (tile == null) continue;
-                IEnergyContainer energyContainer = tile.getCapability(IEnergyContainer.CAPABILITY_ENERGY_CONTAINER, facing.getOpposite());
+                IEnergyContainer energyContainer = cable.getCapabilityAtSide(IEnergyContainer.CAPABILITY_ENERGY_CONTAINER, facing);
                 if (energyContainer == null) continue;
                 amperesUsed += onEnergyPacket(path, voltage,
                     energyContainer.acceptEnergyFromNetwork(facing.getOpposite(), voltage - path.getAccumulatedVal(), amperage - amperesUsed));
             }
         }
-        pos.release();
         return amperesUsed;
     }
 

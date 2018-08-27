@@ -3,6 +3,7 @@ package gregtech.common.pipelike.itempipes;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
+import gregtech.api.pipelike.ITilePipeLike;
 import gregtech.api.util.GTUtility;
 import gregtech.api.worldentries.pipenet.PipeNet;
 import gregtech.api.worldentries.pipenet.RoutePath;
@@ -10,8 +11,8 @@ import gregtech.api.worldentries.pipenet.WorldPipeNet;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
-import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
+import net.minecraft.util.ITickable;
 import net.minecraft.util.NonNullList;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
@@ -25,7 +26,7 @@ import java.util.stream.Collectors;
 
 import static net.minecraftforge.common.util.Constants.NBT.TAG_COMPOUND;
 
-public class ItemPipeNet extends PipeNet<TypeItemPipe, ItemPipeProperties, IItemHandler> {
+public class ItemPipeNet extends PipeNet<TypeItemPipe, ItemPipeProperties, IItemHandler> implements ITickable {
 
     private Map<BlockPos, Pipe> pipes = Maps.newHashMap();
     private Map<BlockPos, PathsCache> pathCaches = Maps.newHashMap();
@@ -56,7 +57,9 @@ public class ItemPipeNet extends PipeNet<TypeItemPipe, ItemPipeProperties, IItem
                 NBTTagList list = new NBTTagList();
                 for (BufferedItem bufferedItem : pipe.bufferedItems) if (!bufferedItem.isEmpty()) {
                     NBTTagCompound item = bufferedItem.bufferedStack.serializeNBT();
-                    item.setIntArray("GTItemPipeBuffered", new int[]{bufferedItem.fromDir == null ? -1 : bufferedItem.fromDir.getIndex(), bufferedItem.moveCountDown, bufferedItem.dirCountDown});
+                    item.setInteger("ItemDir",bufferedItem.fromDir == null ? -1 : bufferedItem.fromDir.getIndex());
+                    item.setInteger("ItemMovingCountDown", bufferedItem.moveCountDown);
+                    item.setInteger("ItemDirCountDown", bufferedItem.dirCountDown);
                     list.appendTag(item);
                 }
                 nodeTag.setTag("BufferedItems", list);
@@ -73,11 +76,11 @@ public class ItemPipeNet extends PipeNet<TypeItemPipe, ItemPipeProperties, IItem
             list.forEach(nbtBase -> {
                 if (nbtBase.getId() == TAG_COMPOUND) {
                     NBTTagCompound compound = (NBTTagCompound) nbtBase;
-                    int[] data = compound.getIntArray("GTItemPipeBuffered");
-                    int index = pipe.addItem(new ItemStack(compound), data[0] < 0 ? null : EnumFacing.VALUES[data[0]]);
+                    int dir = compound.getInteger("ItemDir");
+                    int index = pipe.addItem(new ItemStack(compound), dir < 0 ? null : EnumFacing.VALUES[dir]);
                     if (index >= 0) {
-                        pipe.bufferedItems[index].moveCountDown = data[1];
-                        pipe.bufferedItems[index].dirCountDown = data[2];
+                        pipe.bufferedItems[index].moveCountDown = compound.getInteger("ItemMovingCountDown");
+                        pipe.bufferedItems[index].dirCountDown = compound.getInteger("ItemDirCountDown");
                     }
                 }
             });
@@ -109,13 +112,11 @@ public class ItemPipeNet extends PipeNet<TypeItemPipe, ItemPipeProperties, IItem
         return stack;
     }
 
-    private Multimap<BlockPos, BufferedItem> toMove = HashMultimap.create();
-
     @Override
-    protected void onPreTick() {
+    public void update() {
         if (!pipes.isEmpty()) {
             BlockPos.PooledMutableBlockPos pos = BlockPos.PooledMutableBlockPos.retain();
-            Multimap<BufferedItem, Pair<BlockPos, EnumFacing>> moving = HashMultimap.create();
+            Multimap<BufferedItem, Pair<BlockPos, EnumFacing>> toMove = HashMultimap.create();
             pipes.forEach((pipePos, pipe) -> {
                 Node<ItemPipeProperties> node = allNodes.get(pipePos);
                 if (pipe.getBufferedItemCount() > 0 && (tryMoveBufferedItems || node.isActive())) {
@@ -136,40 +137,21 @@ public class ItemPipeNet extends PipeNet<TypeItemPipe, ItemPipeProperties, IItem
                                 pos.move(dir.getOpposite());
                             }
                             if (locallyAmbiguous) {
-                                toMove.put(pipePos, bufferedItem);
-                                getPathsCache(pipePos);
+                                toMove.put(bufferedItem, Pair.of(pipePos, null));
                             } else if (toDir != null) {
-                                moving.put(bufferedItem, Pair.of(pos.setPos(pipePos).move(toDir).toImmutable(), toDir));
+                                toMove.put(bufferedItem, Pair.of(pos.setPos(pipePos).move(toDir).toImmutable(), toDir));
                             }
                         } else {
-                            toMove.put(pipePos, bufferedItem);
-                            getPathsCache(pipePos);
+                            toMove.put(bufferedItem, Pair.of(pipePos, null));
                         }
                     }
                 }
             });
             tryMoveBufferedItems = false;
-            moving.forEach((bufferedItem, pair) -> {
-                Pipe pipe = getOrCreatePipe(pair.getLeft());
-                if (pipe.addItem(bufferedItem.bufferedStack, pair.getRight()) >= 0) {
-                    bufferedItem.bufferedStack = ItemStack.EMPTY;
-                    tryMoveBufferedItems = true;
-                }
-            });
-            moving.clear();
-            pos.release();
-        }
-    }
-
-    @Override
-    protected void update() {
-        World world = worldNets.getWorld();
-        if (!world.isRemote) {
-            if (!toMove.isEmpty()) {
-                BlockPos.PooledMutableBlockPos mutablePos = BlockPos.PooledMutableBlockPos.retain();
-                toMove.forEach((pos, bufferedItem) -> {
+            toMove.forEach((bufferedItem, pair) -> {
+                if (pair.getRight() == null) {
                     boolean moved = false;
-                    for (List<RoutePath<ItemPipeProperties, ?, Long>> paths : getPathsCache(pos).values()) {
+                    for (List<RoutePath<ItemPipeProperties, ?, Long>> paths : getPathsCache(pair.getLeft()).values()) {
                         ItemStack result = moveItem(paths, bufferedItem.bufferedStack, bufferedItem.fromDir);
                         if (result.getCount() < bufferedItem.bufferedStack.getCount()) {
                             bufferedItem.bufferedStack = ItemStack.EMPTY;
@@ -182,26 +164,27 @@ public class ItemPipeNet extends PipeNet<TypeItemPipe, ItemPipeProperties, IItem
                     if (!moved) {
                         int[] indices = {0, 1, 2, 3, 4, 5};
                         for (int i = 6, r; i > 0 && !bufferedItem.isEmpty(); indices[r] = indices[--i]) {
-                            r = worldNets.getWorld().rand.nextInt(i);
+                            r = getRandom().nextInt(i);
                             EnumFacing dir = EnumFacing.VALUES[indices[r]];
-                            if (allNodes.containsKey(mutablePos.setPos(pos).move(dir))) {
-                                if (getOrCreatePipe(mutablePos).addItem(bufferedItem.bufferedStack, dir) >= 0) {
+                            if (allNodes.containsKey(pos.setPos(pair.getLeft()).move(dir))) {
+                                if (getOrCreatePipe(pos).addItem(bufferedItem.bufferedStack, dir) >= 0) {
                                     bufferedItem.bufferedStack = ItemStack.EMPTY;
                                     tryMoveBufferedItems = true;
                                 }
                             }
                         }
                     }
-                });
-                mutablePos.release();
-            }
+                } else {
+                    Pipe pipe = getOrCreatePipe(pair.getLeft());
+                    if (pipe.addItem(bufferedItem.bufferedStack, pair.getRight()) >= 0) {
+                        bufferedItem.bufferedStack = ItemStack.EMPTY;
+                        tryMoveBufferedItems = true;
+                    }
+                }
+            });
             toMove.clear();
-        }
-    }
+            pos.release();
 
-    @Override
-    protected void onPostTick() {
-        if (!pipes.isEmpty()) {
             for (Iterator<Pipe> itr = pipes.values().iterator(); itr.hasNext();) {
                 Pipe pipe = itr.next();
                 if (pipe.tick()) tryMoveBufferedItems = true;
@@ -227,17 +210,16 @@ public class ItemPipeNet extends PipeNet<TypeItemPipe, ItemPipeProperties, IItem
                 if (secondPos != null && secondPos.equals(pos.setPos(startPos).move(ignoredFacing.getOpposite()))) continue;
                 if (destination.equals(startPos)) tileMask &= ~(1 << ignoredFacing.getOpposite().getIndex());
             }
-            if (tileMask != 0) for (EnumFacing facing : EnumFacing.VALUES) if (0 != (tileMask & 1 << facing.getIndex())) {
-                pos.setPos(destination).move(facing);
-                if (!world.isBlockLoaded(pos)) continue; //do not allow pipes to load chunks
-                TileEntity tile = world.getTileEntity(pos);
-                if (tile == null) continue;
-                IItemHandler itemHandler = tile.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, facing.getOpposite());
-                if (itemHandler == null) continue;
-                int slotCount = itemHandler.getSlots();
-                for (int i = 0; i < slotCount; i++) if (itemHandler.insertItem(i, stack, true).getCount() < stack.getCount()) {
-                    handlers.put(path, itemHandler);
-                    break;
+            if (tileMask != 0) {
+                ITilePipeLike<TypeItemPipe, ItemPipeProperties> pipe = factory.getTile(world, destination);
+                for (EnumFacing facing : EnumFacing.VALUES) if (0 != (tileMask & 1 << facing.getIndex())) {
+                    IItemHandler itemHandler = pipe.getCapabilityAtSide(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, facing);
+                    if (itemHandler == null) continue;
+                    int slotCount = itemHandler.getSlots();
+                    for (int i = 0; i < slotCount; i++) if (itemHandler.insertItem(i, stack, true).getCount() < stack.getCount()) {
+                        handlers.put(path, itemHandler);
+                        break;
+                    }
                 }
             }
         }
@@ -245,14 +227,14 @@ public class ItemPipeNet extends PipeNet<TypeItemPipe, ItemPipeProperties, IItem
 
         if (!handlers.isEmpty()) {
             @SuppressWarnings("unchecked")
-            RoutePath<ItemPipeProperties, ?, Long> path = ((Map.Entry<RoutePath<ItemPipeProperties, ?, Long>, IItemHandler>) handlers.entries().toArray()[worldNets.getWorld().rand.nextInt(handlers.size())]).getKey();
+            RoutePath<ItemPipeProperties, ?, Long> path = ((Map.Entry<RoutePath<ItemPipeProperties, ?, Long>, IItemHandler>) handlers.entries().toArray()[getRandom().nextInt(handlers.size())]).getKey();
             LinkedNode<ItemPipeProperties> startNode = path.getStartNode();
             if (startNode.getTarget() == null) {
                 IItemHandler[] selectedHandlers = handlers.get(path).toArray(new IItemHandler[0]);
                 int[] indices = new int[selectedHandlers.length];
                 for (int i = 0; i < indices.length; i++) indices[i] = i;
                 for (int i = indices.length, r; i > 0 && !stack.isEmpty(); indices[r] = indices[--i]) {
-                    r = worldNets.getWorld().rand.nextInt(i);
+                    r = getRandom().nextInt(i);
                     stack = insertItem(stack, selectedHandlers[indices[r]]);
                 }
             } else {

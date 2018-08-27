@@ -1,7 +1,6 @@
 package gregtech.common.pipelike.fluidpipes;
 
 import gregtech.api.pipelike.ITilePipeLike;
-import gregtech.common.pipelike.fluidpipes.pipenet.FluidPipeNet;
 import net.minecraft.util.EnumFacing;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidHandler;
@@ -28,7 +27,7 @@ public class FluidPipeHandler implements IFluidHandler {
     public int fill(FluidStack resource, boolean doFill) {
         if (resource == null || resource.amount <= 0) return 0;
         FluidPipeNet net = getPipeNet();
-        return net == null ? 0 : net.fill(tile.getTilePos(), facing, resource, doFill);
+        return net == null ? 0 : net.fill(tile.getTilePos(), facing.getOpposite(), resource, doFill);
     }
 
     @Nullable
@@ -36,7 +35,7 @@ public class FluidPipeHandler implements IFluidHandler {
     public FluidStack drain(FluidStack resource, boolean doDrain) {
         if (resource == null || resource.amount <= 0) return null;
         FluidPipeNet net = getPipeNet();
-        return net == null ? null : net.drain(tile.getTilePos(), facing, resource, doDrain);
+        return net == null ? null : net.drain(tile.getTilePos(), facing.getOpposite(), resource, doDrain);
     }
 
     @Nullable
@@ -44,7 +43,7 @@ public class FluidPipeHandler implements IFluidHandler {
     public FluidStack drain(int maxDrain, boolean doDrain) {
         if (maxDrain <= 0) return null;
         FluidPipeNet net = getPipeNet();
-        return net == null ? null : net.drain(tile.getTilePos(), facing, maxDrain, doDrain);
+        return net == null ? null : net.drain(tile.getTilePos(), facing.getOpposite(), maxDrain, doDrain);
     }
 
     private FluidPipeNet getPipeNet() {

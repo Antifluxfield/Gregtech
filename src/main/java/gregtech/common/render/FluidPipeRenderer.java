@@ -36,7 +36,6 @@ import java.util.Set;
 
 import static gregtech.api.pipelike.PipeFactory.MASK_FORMAL_CONNECTION;
 import static gregtech.api.pipelike.PipeFactory.MASK_RENDER_SIDE;
-import static gregtech.common.pipelike.fluidpipes.FluidPipeFactory.MASK_RENDER_EXPOSED;
 
 @SideOnly(Side.CLIENT)
 public class FluidPipeRenderer extends PipeLikeRenderer<TypeFluidPipe> {
@@ -55,16 +54,13 @@ public class FluidPipeRenderer extends PipeLikeRenderer<TypeFluidPipe> {
         GTLog.logger.info("Registering fluid pipe textures.");
         pipeTextures = map.registerSprite(new ResourceLocation(GTValues.MODID, "blocks/pipe/pipe_center"));
         for(MaterialIconSet iconSet : generatedSets) {
-            TextureAtlasSprite[] textures = new TextureAtlasSprite[9];
+            TextureAtlasSprite[] textures = new TextureAtlasSprite[6];
             textures[0] = map.registerSprite(MaterialIconType.pipeTiny.getBlockPath(iconSet));
             textures[1] = map.registerSprite(MaterialIconType.pipeSmall.getBlockPath(iconSet));
             textures[2] = map.registerSprite(MaterialIconType.pipeMedium.getBlockPath(iconSet));
             textures[3] = map.registerSprite(MaterialIconType.pipeLarge.getBlockPath(iconSet));
             textures[4] = map.registerSprite(MaterialIconType.pipeHuge.getBlockPath(iconSet));
-            textures[5] = map.registerSprite(MaterialIconType.pipeQuadruple.getBlockPath(iconSet));
-            textures[6] = map.registerSprite(MaterialIconType.pipeNonuple.getBlockPath(iconSet));
-            textures[7] = map.registerSprite(MaterialIconType.pipeSexdecuple.getBlockPath(iconSet));
-            textures[8] = map.registerSprite(MaterialIconType.pipeSide.getBlockPath(iconSet));
+            textures[5] = map.registerSprite(MaterialIconType.pipeSide.getBlockPath(iconSet));
             this.fluidPipeTextures.put(iconSet, textures);
         }
     }
@@ -77,7 +73,7 @@ public class FluidPipeRenderer extends PipeLikeRenderer<TypeFluidPipe> {
 
     @Override
     public Set<TextureAtlasSprite> getDestroyEffects(IBlockState state, IBlockAccess world, BlockPos pos) {
-        return Collections.singleton(fluidPipeTextures.get(getBlock(state).material.materialIconSet)[8]);
+        return Collections.singleton(fluidPipeTextures.get(getBlock(state).material.materialIconSet)[5]);
     }
 
     @Override
@@ -95,18 +91,16 @@ public class FluidPipeRenderer extends PipeLikeRenderer<TypeFluidPipe> {
         ColourMultiplier multiplier = new ColourMultiplier(tileColor == factory.getDefaultColor() ? materialColor : GTUtility.convertRGBtoOpaqueRGBA_CL(tileColor));
         pipelines[0] = ArrayUtils.addAll(pipeline, new IconTransformation(pipeTextures), new ColourMultiplier(materialColor));
         pipelines[1] = ArrayUtils.addAll(pipeline, new IconTransformation(fluidPipeTextures.get(iconSet)[baseProperty.index]), multiplier);
-        pipelines[2] = ArrayUtils.addAll(pipeline, new IconTransformation(fluidPipeTextures.get(iconSet)[8]), multiplier);
+        pipelines[2] = ArrayUtils.addAll(pipeline, new IconTransformation(fluidPipeTextures.get(iconSet)[5]), multiplier);
 
         Cuboid6 cuboid6 = PipeFactory.getSideBox(null, thickness);
         int mask = renderMask & 0b111111;
-        int exposed = renderMask & 0b111111 << 12;
         for(EnumFacing renderedSide : EnumFacing.VALUES) {
             int index = renderedSide.getIndex();
             if((mask & MASK_FORMAL_CONNECTION << index) == 0) {
                 int oppositeIndex = renderedSide.getOpposite().getIndex();
-                if(mask == 0
-                    || (exposed != 0 ? ((exposed & MASK_RENDER_EXPOSED << index) != 0)
-                        : ((mask & MASK_FORMAL_CONNECTION << oppositeIndex) != 0 && (mask & ~(MASK_FORMAL_CONNECTION << oppositeIndex)) == 0))) {
+                if(mask == 0 || ((mask & MASK_FORMAL_CONNECTION << oppositeIndex) != 0 && (mask & ~(MASK_FORMAL_CONNECTION << oppositeIndex)) == 0)) {
+                    //if the pipe is isolated or there is something only on opposite side, render overlay + base
                     renderSide(state, pipelines[0], renderedSide, cuboid6);
                     renderSide(state, pipelines[1], renderedSide, cuboid6);
                 } else {

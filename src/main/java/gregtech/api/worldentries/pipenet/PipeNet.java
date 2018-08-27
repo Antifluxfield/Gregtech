@@ -83,9 +83,9 @@ public abstract class PipeNet<Q extends Enum<Q> & IBaseProperty & IStringSeriali
         return worldNets.getWorld().getTotalWorldTime();
     }
 
-    protected void onPreTick() {}//pre calculations here
-    protected void update() {}// world interactions here
-    protected void onPostTick() {}//post calculations here
+    protected Random getRandom() {
+        return worldNets.getWorld().rand;
+    }
 
     protected long lastUpdate = 1;
     protected long lastWeakUpdate = 1;
@@ -121,9 +121,13 @@ public abstract class PipeNet<Q extends Enum<Q> & IBaseProperty & IStringSeriali
 
         allNodes.values().forEach(node -> {
             NBTTagCompound tag = new NBTTagCompound();
-            tag.setIntArray("Node", new int[]{node.getX(), node.getY(), node.getZ(),
-                properties.computeIfAbsent(node.property, p -> index.getAndIncrement()),
-                node.connectionMask, node.color, node.activeMask});
+            tag.setInteger("X", node.getX());
+            tag.setInteger("Y", node.getY());
+            tag.setInteger("Z", node.getZ());
+            tag.setInteger("Property", properties.computeIfAbsent(node.property, p -> index.getAndIncrement()));
+            tag.setInteger("Connection", node.connectionMask);
+            tag.setInteger("Color", node.color);
+            tag.setInteger("Active", node.activeMask);
             serializeNodeData(node, tag);
             nodeList.appendTag(tag);
         });
@@ -155,9 +159,10 @@ public abstract class PipeNet<Q extends Enum<Q> & IBaseProperty & IStringSeriali
         nodeList.forEach(nbtBase -> {
             if (nbtBase.getId() == TAG_COMPOUND) {
                 NBTTagCompound node = (NBTTagCompound) nbtBase;
-                int[] data = node.getIntArray("Node");
-                BlockPos pos = new BlockPos(data[0], data[1], data[2]);
-                allNodes.put(pos, new Node<>(pos, properties[data[3]], data[4], data[5], data[6]));
+
+                BlockPos pos = new BlockPos(node.getInteger("X"), node.getInteger("Y"), node.getInteger("Z"));
+                allNodes.put(pos, new Node<>(pos, properties[node.getInteger("Property")], node.getInteger("Connection"),
+                    node.getInteger("Color"), node.getInteger("Active")));
                 deserializeNodeData(pos, node);
                 addPosToArea(pos);
             }
@@ -175,16 +180,14 @@ public abstract class PipeNet<Q extends Enum<Q> & IBaseProperty & IStringSeriali
             int connectionMask = factory.getConnectionMask(tile, worldNets.getWorld(), pos);
             int color = tile.getColor();
             int activeMask = factory.getActiveSideMask(tile);
-            boolean weakUpdate = data.isActive();
             if (data.connectionMask != connectionMask || data.color != color) {
                 data.connectionMask = connectionMask;
                 data.color = color;
                 onConnectionUpdate();
-                weakUpdate = false;
             }
             if (data.activeMask != activeMask) {
                 data.activeMask = activeMask;
-                if (weakUpdate) onWeakUpdate();
+                onWeakUpdate();
             }
         }
     }

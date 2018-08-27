@@ -454,7 +454,7 @@ public abstract class PipeFactory<Q extends Enum<Q> & IBaseProperty & IStringSer
         World world = tile.getTileWorld();
         int color = tile.getColor();
         BlockPos.PooledMutableBlockPos pos = BlockPos.PooledMutableBlockPos.retain().setPos(tile.getTilePos()).move(facing);
-        ICapabilityProvider result = world == null ? null : world.getTileEntity(pos);
+        ICapabilityProvider result = world == null || !world.isBlockLoaded(pos) ? null : world.getTileEntity(pos);
         if (result != null && color != getDefaultColor()) {
             MetaTileEntity mte = BlockMachine.getMetaTileEntity(world, pos);
             if (mte != null && mte.getPaintingColor() != MetaTileEntity.DEFAULT_PAINTING_COLOR

@@ -20,7 +20,7 @@ public class ItemPipeProperties implements IPipeLikeTileProperty {
     protected ItemPipeProperties() {}
 
     public ItemPipeProperties(int transferCapacity, int tickRate, int routingValue) {
-        int d = GTUtility.gcd(transferCapacity, tickRate);
+        int d = (int) GTUtility.gcd(transferCapacity, tickRate);
         this.transferCapacity = transferCapacity / d;
         this.tickRate = tickRate / d;
         this.routingValue = routingValue;
@@ -64,15 +64,16 @@ public class ItemPipeProperties implements IPipeLikeTileProperty {
     @Override
     public NBTTagCompound serializeNBT() {
         NBTTagCompound nbt = new NBTTagCompound();
-        nbt.setIntArray("ItemPipeProperties", new int[]{transferCapacity, tickRate, routingValue});
+        nbt.setInteger("ItemPipeCapacity", transferCapacity);
+        nbt.setInteger("ItemPipeTickRate", tickRate);
+        nbt.setInteger("ItemPipeRoutingValue", routingValue);
         return nbt;
     }
 
     @Override
     public void deserializeNBT(NBTTagCompound nbt) {
-        int[] data = nbt.getIntArray("ItemPipeProperties");
-        transferCapacity = data[0];
-        tickRate = data[1];
-        routingValue = data[2];
+        transferCapacity = nbt.getInteger("ItemPipeCapacity");
+        tickRate = nbt.getInteger("ItemPipeTickRate");
+        routingValue = nbt.getInteger("ItemPipeRoutingValue");
     }
 }

@@ -2941,8 +2941,7 @@ gregtech.item_pipe.capacity2=Item Capacity: §e%d§7 Stacks/sec
 gregtech.item_pipe.capacity3=Item Capacity: §e1§7 Stack/sec
 gregtech.item_pipe.routing_value=Routing Value: §2%d§7
 
-gregtech.fluid_pipe.capacity1=Fluid Capacity: §9%d§7 L/sec
-gregtech.fluid_pipe.capacity2=Fluid Capacity: §9%d§7x§9%d§7 L/sec
+gregtech.fluid_pipe.capacity=Fluid Capacity: §9%d§7 L/sec
 gregtech.fluid_pipe.heat_limit=Heat Limit:  §c%s§7 K
 gregtech.fluid_pipe.gas_proof=§aGas Proof§7
 

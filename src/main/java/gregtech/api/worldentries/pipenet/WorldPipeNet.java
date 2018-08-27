@@ -11,6 +11,7 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.IStringSerializable;
+import net.minecraft.util.ITickable;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import net.minecraft.world.storage.WorldSavedData;
@@ -21,6 +22,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static net.minecraftforge.common.util.Constants.NBT.TAG_COMPOUND;
 
@@ -109,7 +111,7 @@ public class WorldPipeNet extends WorldSavedData {
         }
     }
 
-    protected PipeNet addPipeNet(PipeNet net) {
+    protected synchronized PipeNet addPipeNet(PipeNet net) {
         pipeNets.put(net.factory.name, net);
         return net;
     }
@@ -161,22 +163,16 @@ public class WorldPipeNet extends WorldSavedData {
         });
         scheduledCheck.clear();
 
-        Collection<PipeNet> nets = pipeNets.values();
+        if (!world.isRemote) {
+            Collection<PipeNet> nets = pipeNets.values();
 
-        Sets.newHashSet(nets).forEach(PipeNet::trySplitPipeNet);
-        nets.removeIf(net -> net.allNodes.isEmpty());
+            Sets.newHashSet(nets).forEach(PipeNet::trySplitPipeNet);
+            nets.removeIf(net -> net.allNodes.isEmpty());
 
-        nets.forEach(net -> {
-            if (net.isAnyAreaLoaded()) net.onPreTick();
-        });
+            nets.forEach(net -> { if (net instanceof ITickable && net.isAnyAreaLoaded()) ((ITickable) net).update(); });
 
-        nets.forEach(net -> { if (net.isAnyAreaLoaded()) net.update(); });
-
-        Sets.newHashSet(nets).forEach(PipeNet::trySplitPipeNet);
-        nets.removeIf(net -> net.allNodes.isEmpty());
-
-        nets.forEach(net -> {
-            if (net.isAnyAreaLoaded()) net.onPostTick();
-        });
+            Sets.newHashSet(nets).forEach(PipeNet::trySplitPipeNet);
+            nets.removeIf(net -> net.allNodes.isEmpty());
+        }
     }
 }
