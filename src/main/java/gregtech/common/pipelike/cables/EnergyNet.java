@@ -2,6 +2,7 @@ package gregtech.common.pipelike.cables;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import gregtech.api.capability.GregtechCapabilities;
 import gregtech.api.capability.IEnergyContainer;
 import gregtech.api.pipelike.ITilePipeLike;
 import gregtech.api.worldentries.pipenet.PipeNet;
@@ -74,7 +75,7 @@ public class EnergyNet extends PipeNet<Insulation, WireProperties, IEnergyContai
             EnumFacing facing = EnumFacing.VALUES[indices[r]];
             ITilePipeLike<Insulation, WireProperties> cable = factory.getTile(world, destination);
             if (0 != (tileMask & 1 << facing.getIndex())) {
-                IEnergyContainer energyContainer = cable.getCapabilityAtSide(IEnergyContainer.CAPABILITY_ENERGY_CONTAINER, facing);
+                IEnergyContainer energyContainer = cable.getCapabilityAtSide(GregtechCapabilities.CAPABILITY_ENERGY_CONTAINER, facing);
                 if (energyContainer == null) continue;
                 amperesUsed += onEnergyPacket(path, voltage,
                     energyContainer.acceptEnergyFromNetwork(facing.getOpposite(), voltage - path.getAccumulatedVal(), amperage - amperesUsed));

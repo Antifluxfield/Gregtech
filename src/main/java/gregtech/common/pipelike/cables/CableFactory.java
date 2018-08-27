@@ -1,6 +1,7 @@
 package gregtech.common.pipelike.cables;
 
 import gregtech.api.GregTechAPI;
+import gregtech.api.capability.GregtechCapabilities;
 import gregtech.api.capability.IEnergyContainer;
 import gregtech.api.pipelike.BlockPipeLike;
 import gregtech.api.pipelike.ITilePipeLike;
@@ -19,7 +20,7 @@ public class CableFactory extends PipeFactory<Insulation, WireProperties, IEnerg
     public static final CableFactory INSTANCE = new CableFactory();
 
     private CableFactory() {
-        super("cable", IEnergyContainer.CAPABILITY_ENERGY_CONTAINER, Insulation.class, WireProperties.class);
+        super("cable", GregtechCapabilities.CAPABILITY_ENERGY_CONTAINER, Insulation.class, WireProperties.class);
     }
 
     public static class CableRegistryEvent extends PipeRegistryEvent<Insulation, WireProperties> {

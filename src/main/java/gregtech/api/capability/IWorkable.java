@@ -1,15 +1,9 @@
 package gregtech.api.capability;
 
-import net.minecraftforge.common.capabilities.Capability;
-import net.minecraftforge.common.capabilities.CapabilityInject;
-
 /**
  * For machines which have progress and can work
  */
 public interface IWorkable {
-
-    @CapabilityInject(IWorkable.class)
-    Capability<IWorkable> CAPABILITY_WORKABLE = null;
 
     /**
      * @return current progress of machine

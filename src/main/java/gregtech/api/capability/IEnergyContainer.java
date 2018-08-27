@@ -1,8 +1,6 @@
 package gregtech.api.capability;
 
 import net.minecraft.util.EnumFacing;
-import net.minecraftforge.common.capabilities.Capability;
-import net.minecraftforge.common.capabilities.CapabilityInject;
 
 import java.math.BigInteger;
 
@@ -46,9 +44,6 @@ public interface IEnergyContainer {
             return false;
         }
     }
-
-    @CapabilityInject(IEnergyContainer.class)
-    Capability<IEnergyContainer> CAPABILITY_ENERGY_CONTAINER = null;
 
     /**
      * @return amount of used amperes. 0 if not accepted anything.

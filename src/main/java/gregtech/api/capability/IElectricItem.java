@@ -1,15 +1,10 @@
 package gregtech.api.capability;
 
 import net.minecraft.item.ItemStack;
-import net.minecraftforge.common.capabilities.Capability;
-import net.minecraftforge.common.capabilities.CapabilityInject;
 
 import java.util.function.BiConsumer;
 
 public interface IElectricItem {
-
-    @CapabilityInject(IElectricItem.class)
-    Capability<IElectricItem> CAPABILITY_ELECTRIC_ITEM = null;
 
     /**
      * Determines if item can provide external discharging capability "in general"
